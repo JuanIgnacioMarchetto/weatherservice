@@ -1,66 +1,141 @@
-import React, { useState } from 'react';
 
-const WeatherApp = () => {
-  const [city, setCity] = useState('');
-  const [weather, setWeather] = useState(null);
-  const [forecast, setForecast] = useState(null);
+import React, { useState, useEffect } from 'react';
+import styled from 'styled-components';
 
-  const apiKey = 'tu_api_key'; // Reemplaza con tu propia clave de API de OpenWeatherMap
+const App = () => {
+  const [cityInput, setCityInput] = useState('');
+  const [weatherData, setWeatherData] = useState(null);
+  const [recentSearches, setRecentSearches] = useState([]);
 
-  const getWeatherData = async () => {
+  useEffect(() => {
+    const savedRecentSearches = JSON.parse(localStorage.getItem('recentSearches')) || [];
+    setRecentSearches(savedRecentSearches);
+  }, []);
+
+  const getWeather = async () => {
+    const apiKey = 'b7b9a117c50de42fd5929641559e4661';
+    const apiUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${cityInput}&appid=${apiKey}`;
+
     try {
-      // Obtener datos actuales del clima
-      const weatherResponse = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`);
-      const weatherData = await weatherResponse.json();
-      setWeather(weatherData);
+      const response = await fetch(apiUrl);
+      const data = await response.json();
 
-      // Obtener pronóstico para los próximos 5 días
-      const forecastResponse = await fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=metric`);
-      const forecastData = await forecastResponse.json();
-      setForecast(forecastData);
+      setWeatherData(data);
+      saveRecentSearch(cityInput);
     } catch (error) {
-      console.error('Error fetching weather data', error);
+      console.error('Error fetching weather data:', error);
     }
   };
 
+  const saveRecentSearch = (city) => {
+    const updatedRecentSearches = [city, ...recentSearches.slice(0, 2)];
+    setRecentSearches(updatedRecentSearches);
+    localStorage.setItem('recentSearches', JSON.stringify(updatedRecentSearches));
+  };
+
   return (
-    <div>
-      <h1>Weather App</h1>
-      <label>
-        Ingresa el nombre de la ciudad:
-        <input
+    <Container>
+      <WeatherContainer>
+        <h1>Weather App</h1>
+        <Label htmlFor="cityInput">Enter City:</Label>
+        <Input
           type="text"
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
+          id="cityInput"
+          placeholder="Enter city name"
+          value={cityInput}
+          onChange={(e) => setCityInput(e.target.value)}
         />
-      </label>
-      <button onClick={getWeatherData}>Obtener Clima</button>
-
-      {weather && (
-  <div>
-    <h2 className="text-xl font-semibold mb-2">Clima en {weather.name}, {weather.sys && weather.sys.country}</h2>
-    <p>Temperatura: {weather.main.temp} °C</p>
-    <p>Descripción: {weather.weather[0].description}</p>
-  </div>
-)}
-
-
-      {forecast && (
-        <div>
-          <h2>Pronóstico para los próximos 5 días:</h2>
-          <div>
-            {forecast.list.map((item, index) => (
-              <div key={index}>
-                <p>{new Date(item.dt * 1000).toLocaleDateString('en-US', { weekday: 'short' })}</p>
-                <p>Temp: {item.main.temp} °C</p>
-                <p>Desc: {item.weather[0].description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+        <Button onClick={getWeather}>Get Weather</Button>
+        {weatherData && <WeatherReport data={weatherData} />}
+      </WeatherContainer>
+      <RecentSearches>
+        <h2>Recent Searches</h2>
+        <RecentList>
+          {recentSearches.map((city, index) => (
+            <li key={index} onClick={() => setCityInput(city)}>
+              {city}
+            </li>
+          ))}
+        </RecentList>
+      </RecentSearches>
+    </Container>
   );
 };
 
-export default WeatherApp;
+const WeatherReport = ({ data }) => {
+  return (
+    <WeatherReportContainer>
+      {data.list.slice(0, 5).map((weatherItem, index) => (
+        <WeatherCard key={index}>
+          <p>{new Date(weatherItem.dt_txt).toLocaleString()}</p>
+          <p>Temperature: {Math.round(weatherItem.main.temp - 273.15)}°C</p>
+          <p>{weatherItem.weather[0].description}</p>
+        </WeatherCard>
+      ))}
+    </WeatherReportContainer>
+  );
+};
+
+const Container = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: #8e44ad; /* Morado */
+`;
+
+const WeatherContainer = styled.div`
+  text-align: center;
+  background-color: #3498db; /* Azul */
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+  width: 90%;
+  color: #ecf0f1;
+`;
+
+const Label = styled.label`
+  display: block;
+  margin-top: 10px;
+`;
+
+const Input = styled.input`
+  padding: 10px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 5px;
+`;
+
+const Button = styled.button`
+  padding: 10px;
+  margin-top: 10px;
+  cursor: pointer;
+  background-color: #2ecc71; /* Verde */
+  color: #ecf0f1;
+  border: none;
+  border-radius: 5px;
+`;
+
+const WeatherReportContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+`;
+
+const WeatherCard = styled.div`
+  background-color: #3498db; /* Azul */
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 5px;
+`;
+
+const RecentSearches = styled.div`
+  margin-top: 20px;
+`;
+
+const RecentList = styled.ul`
+  list-style: none;
+  padding: 0;
+`;
+export default App;
